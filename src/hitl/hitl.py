@@ -84,13 +84,42 @@ class ConfidenceRouter:
         #      action="escalate", priority="high",
         #      requires_human=True, reason="Low confidence — escalating"
 
+        confidence = max(0.0, min(1.0, confidence))
+
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high",
+                requires_human=True,
+            )
+
+        if confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send",
+                confidence=confidence,
+                reason="High confidence",
+                priority="low",
+                requires_human=False,
+            )
+
+        if confidence >= self.MEDIUM_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review",
+                confidence=confidence,
+                reason="Medium confidence - needs review",
+                priority="normal",
+                requires_human=True,
+            )
+
         return RoutingDecision(
-            action="auto_send",
+            action="escalate",
             confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+            reason="Low confidence - escalating",
+            priority="high",
+            requires_human=True,
+        )
 
 
 # ============================================================
@@ -109,27 +138,27 @@ class ConfidenceRouter:
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "High-risk transaction approval",
+        "trigger": "Any money movement, account closure, password reset, or profile change above the bank's risk threshold.",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "Customer identity checks, transaction amount, beneficiary details, fraud signals, recent account activity, and the model's proposed action.",
+        "example": "A customer asks to transfer 500 million VND to a new beneficiary immediately after changing their phone number.",
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Low-confidence advice review",
+        "trigger": "The assistant's confidence is below 0.7 or retrieval evidence is missing for product, fee, compliance, or policy answers.",
+        "hitl_model": "human-as-tiebreaker",
+        "context_needed": "User question, draft answer, cited policy or product documents, confidence score, and unresolved ambiguity.",
+        "example": "The assistant cannot determine whether an early loan repayment fee applies to a customer's contract type.",
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Safety and compliance audit",
+        "trigger": "Guardrails detect possible prompt injection, PII exposure, internal secret leakage, fraud, coercion, or regulatory complaint language.",
+        "hitl_model": "human-on-the-loop",
+        "context_needed": "Original user message, guardrail verdicts, redacted model response, detected sensitive fields, and conversation history.",
+        "example": "A user asks the bot to reveal the admin password while also including another customer's national ID in the conversation.",
     },
 ]
 
